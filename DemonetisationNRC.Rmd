@@ -1,0 +1,95 @@
+---
+title: "Demonetisation"
+output: html_document
+---
+
+```{r}
+library(tidytext)
+
+get_sentiments(lexicon = "nrc")
+```
+
+Get the html text from the three sites :
+https://www.indianeconomy.net/splclassroom/demonetisation-an-impact-assessment/
+
+```{r}
+library(rvest)
+library(stringr)
+library(dplyr)
+library(magrittr)
+```
+
+Plan is to get the textual data from the blogs and apply NRC sentiment analysis.  
+
+```{r}
+# define tgt url
+url <- 'https://www.indianeconomy.net/splclassroom/demonetisation-an-impact-assessment/'    
+
+# extract url content with read_html() func
+url_content <- read_html(url)    
+
+# alternately, above in 1 line.
+# url_content <- read_html('http://www.atis.org/glossary/definitionsList.aspx?find=A&kw=0')
+
+# alternately, using pipes operator %>%
+#url_content <- url %>% read_html() 
+url_content
+```
+
+```{r}
+text1 = url_content %>% html_nodes('p') %>% html_text()
+text1
+```
+```{r}
+url2 <- "http://www.mbauniverse.com/group-discussion/topic/business-economy/demonetisation"
+url_content2 <- read_html(url2)  
+text2 = url_content2 %>% html_nodes('p') %>% html_text()
+
+text2 = text2[2:38]
+```
+```{r}
+
+text3 = url_content2 %>% html_nodes('ul') %>% html_text()
+
+text3= text3[24:28]
+text3
+```
+
+```{r}
+text4 = url_content2 %>% html_nodes('li') %>% html_text()
+
+text4 = text4[132:165]
+text4
+```
+
+
+```{r}
+textdf = data_frame(text = text1)
+textdf = rbind(textdf,text2)
+textdf = rbind(textdf,text3)
+textdf = rbind(textdf,text4)
+```
+
+```{r}
+senti.nrc = textdf %>%
+      mutate(linenumber = row_number()) %>%
+      ungroup() %>%
+  
+      # word-tokenize & merge nrc sentiment words
+      unnest_tokens(word, text) %>%
+      inner_join(get_sentiments("nrc")) %>%
+      count(sentiment, index = linenumber %/% 1, sort = FALSE) %>%  # %/% gives quotient
+      mutate(method = "nrc")
+
+senti.nrc
+```
+
+```{r}
+sentiments <- senti.nrc %>% select(sentiment,n) %>% group_by(sentiment) %>% summarize_all(sum)
+  
+library(ggplot2)
+# Stacked bar graph -- this is probably not what you want
+ggplot(data=sentiments, aes(x=sentiment, y=n, fill = sentiment)) +
+    geom_bar(stat="identity")
+```
+
